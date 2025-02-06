@@ -2,13 +2,13 @@
 
 The purpose of this project is to analyze the Dallas Animal Shelter Data to:
 
-  •	Normalize the dataset and create an optimized Entity-Relationship Diagram (ERD).
+  -	Normalize the dataset and create an optimized Entity-Relationship Diagram (ERD).
   
-  •	Design and implement database tables using PostgreSQL.
+  -	Design and implement database tables using PostgreSQL.
   
-  •	Load, clean, and process the data into structured formats.
+  -	Load, clean, and process the data into structured formats.
   
-  •	Generate insights on:
+  -	Generate insights on:
   
    - Breeds with the best survival rate over multiple years.
    - Impact of intake type on animal outcomes.
