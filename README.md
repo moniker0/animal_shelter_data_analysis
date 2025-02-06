@@ -10,8 +10,8 @@ The purpose of this project is to analyze the Dallas Animal Shelter Data to:
   
   -	Generate insights on:
   
-   - Breeds with the best survival rate over multiple years.
-   - Impact of intake type on animal outcomes.
+     - Breeds with the best survival rate over multiple years.
+     - Impact of intake type on animal outcomes.
 
 Refer to the attached documents for details:
 
