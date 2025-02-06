@@ -1,4 +1,4 @@
-# animal_shelter_data_analysis
+# animal shelter data analysis
 
 The purpose of this project is to analyze the Dallas Animal Shelter Data to:
 
