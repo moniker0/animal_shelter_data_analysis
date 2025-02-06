@@ -17,6 +17,6 @@ The purpose of this project is to analyze the Dallas Animal Shelter Data to:
 Refer to the attached documents for details:
 
   1.  Dataset (Dallas_Animal_Shelter_Data.csv)
-  2.  Detailed report stating objective, data sources, approach and analysis results.
-  3.  ER-Diagram
-  4.  SQL script
+  2.  Detailed report stating objective, data sources, approach and analysis results (Animal Shelter Analysis Report.pdf)
+  3.  ER-Diagram (ERD.png)
+  4.  SQL script (SQL script.txt)
