@@ -1,0 +1,334 @@
+-- create database animal_shelter
+CREATE DATABASE animal_shelter;
+
+-- create table schema for initial data load
+CREATE TABLE animal_shelter_load (
+    animal_id VARCHAR(20),  -- Unique animal identifier
+    animal_type VARCHAR(50),  
+    animal_breed VARCHAR(100),  
+    kennel_number VARCHAR(50),  
+    kennel_status VARCHAR(50),  
+    tag_type VARCHAR(50),  
+    activity_number VARCHAR(50),  
+    activity_sequence INT,  
+    source_id VARCHAR(50),  
+    census_tract VARCHAR(50),  
+    council_district VARCHAR(20),  
+    intake_type VARCHAR(50),  
+    intake_subtype VARCHAR(50),  
+    intake_total INT,  
+    reason VARCHAR(100),  
+    staff_id VARCHAR(50),  
+    intake_date DATE,  
+    intake_time TIME,  
+    due_out DATE,  
+    intake_condition VARCHAR(50),  
+    hold_request VARCHAR(50),  
+    outcome_type VARCHAR(50),  
+    outcome_subtype VARCHAR(50),  
+    outcome_date DATE,  
+    outcome_time TIME,  
+    receipt_number VARCHAR(50),  
+    impound_number VARCHAR(50),  
+    service_request_number VARCHAR(50),  
+    outcome_condition VARCHAR(50),  
+    chip_status VARCHAR(50),  
+    animal_origin VARCHAR(50),  
+    additional_information VARCHAR(100),  
+    month VARCHAR(20),  
+    year VARCHAR(10)  
+);
+
+-- data loaded in the animal_shelter_logs table using the import feature
+
+-- checking the data load
+SELECT * FROM animal_shelter_load LIMIT 10;
+
+SELECT COUNT(*) FROM animal_shelter_load;
+
+-- find common animal breeds
+SELECT animal_breed, COUNT(*) AS total_count
+FROM animal_shelter_load
+GROUP BY animal_breed
+ORDER BY total_count DESC
+LIMIT 10;
+
+-- find common cat breeds
+SELECT animal_breed, COUNT(*) AS total_count
+FROM animal_shelter_load
+WHERE animal_type = 'CAT'
+GROUP BY animal_breed
+ORDER BY total_count DESC
+LIMIT 10;
+
+-- find common dog breeds
+SELECT animal_breed, COUNT(*) AS total_count
+FROM animal_shelter_load
+WHERE animal_type = 'DOG'
+GROUP BY animal_breed
+ORDER BY total_count DESC
+LIMIT 10;
+
+-- analyze intake type distribution
+SELECT intake_type, COUNT(*) AS count
+FROM animal_shelter_load
+GROUP BY intake_type
+ORDER BY count DESC;
+
+-- survival rates by year
+SELECT EXTRACT(YEAR FROM outcome_date) as outcome_year, outcome_type, COUNT(*) as count
+FROM animal_shelter_load
+GROUP BY EXTRACT(YEAR FROM outcome_date), outcome_type
+ORDER BY outcome_year, count DESC
+
+--  Adoption Trends Over Time
+SELECT EXTRACT(YEAR FROM outcome_date) as year, COUNT(*) AS adoptions
+FROM animal_shelter_load
+WHERE outcome_type = 'ADOPTION'
+GROUP BY EXTRACT(YEAR FROM outcome_date)
+ORDER BY year;
+
+-- Create tables (consider only CAT and DOG breeds)
+CREATE TABLE animal (
+animal_type VARCHAR(20),
+animal_breed VARCHAR(30),
+CONSTRAINT animaltype_breedid_pk PRIMARY KEY (animal_type, animal_breed)
+);
+
+INSERT INTO animal (animal_type, animal_breed)
+SELECT DISTINCT animal_type, animal_breed 
+FROM animal_shelter_load
+WHERE animal_type IN ('CAT','DOG');
+
+select * from animal;
+
+CREATE TABLE kennel (
+kennel_id SERIAL PRIMARY KEY,
+kennel_name VARCHAR(30)
+);
+
+INSERT INTO kennel (kennel_name)
+SELECT DISTINCT kennel_number
+FROM animal_shelter_load
+WHERE kennel_number IS NOT NULL;
+
+drop table kennel;
+
+select * from kennel limit 10;
+
+CREATE TABLE intake_type (
+intake_id SERIAL PRIMARY KEY,
+intake_type VARCHAR(30)
+);
+
+INSERT INTO intake_type (intake_type)
+SELECT DISTINCT intake_type
+FROM animal_shelter_load
+WHERE intake_type IS NOT NULL;
+
+CREATE TABLE outcome_type (
+    outcome_id SERIAL PRIMARY KEY,
+    outcome_type VARCHAR(30)
+);
+
+INSERT INTO outcome_type (outcome_type)
+SELECT DISTINCT outcome_type
+FROM animal_shelter_load
+WHERE outcome_type IS NOT NULL;
+
+CREATE TABLE animal_shelter_logs (
+    lno SERIAL PRIMARY KEY,
+    animal_type VARCHAR(30),
+    animal_breed VARCHAR(30),
+    kennel_id INT,
+    intake_id INT,
+    outcome_id INT,
+    intake_date DATE,
+    outcome_date DATE,
+    CONSTRAINT animals2_id_fk FOREIGN KEY (animal_type, animal_breed) REFERENCES animal (animal_type, animal_breed),
+    CONSTRAINT kennels2_id_fk FOREIGN KEY (kennel_id) REFERENCES kennel (kennel_id),
+    CONSTRAINT intakes2_id_fk FOREIGN KEY (intake_id) REFERENCES intake_type (intake_id),
+    CONSTRAINT outcomes2_id_fk FOREIGN KEY (outcome_id) REFERENCES outcome_type (outcome_id)
+);
+
+drop table animal_shelter_logs
+
+INSERT INTO animal_shelter_logs (
+    animal_type, animal_breed, kennel_id, intake_id, outcome_id, intake_date, outcome_date
+)
+SELECT 
+    p.animal_type, 
+    p.animal_breed, 
+    k.kennel_id, 
+    i.intake_id, 
+    o.outcome_id, 
+    CAST(p.intake_date AS DATE), 
+    CAST(p.outcome_date AS DATE)
+FROM animal_shelter_load p
+JOIN animal a ON p.animal_breed = a.animal_breed AND p.animal_type = a.animal_type
+JOIN kennel k ON p.kennel_number = k.kennel_name
+JOIN intake_type i ON p.intake_type = i.intake_type
+JOIN outcome_type o ON p.outcome_type = o.outcome_type
+WHERE p.intake_date IS NOT NULL AND p.outcome_date IS NOT NULL;
+
+select distinct outcome_type from outcome_type;
+
+SELECT 'animal' AS table_name, COUNT(*) AS total_records FROM animal
+UNION ALL
+SELECT 'kennel', COUNT(*) FROM kennel
+UNION ALL
+SELECT 'intake_type', COUNT(*) FROM intake_type
+UNION ALL
+SELECT 'outcome_type', COUNT(*) FROM outcome_type
+UNION ALL
+SELECT 'animal_shelter_logs', COUNT(*) FROM animal_shelter_logs;
+
+-- Survival Rate Report for CATS
+WITH SurvivalData AS (
+    SELECT 
+        l.animal_type, 
+        l.animal_breed, 
+        EXTRACT(YEAR FROM l.intake_date) AS intake_year, 
+        COUNT(*) AS total_intakes,
+        SUM(CASE WHEN o.outcome_type IN ('FOSTER', 'RETURNED TO OWNER', 'TREATMENT', 'SNR', 'ADOPTION', 'WILDLIFE', 'TRANSFER', 'TNR') THEN 1 ELSE 0 END) AS survived_count
+    FROM animal_shelter_logs l
+    JOIN outcome_type o ON l.outcome_id = o.outcome_id
+    GROUP BY l.animal_type, l.animal_breed, intake_year
+)
+SELECT 
+    animal_type, 
+    animal_breed, 
+    intake_year, 
+    total_intakes, 
+    survived_count,
+    ROUND((survived_count * 100.0 / total_intakes), 2) AS survival_rate
+FROM SurvivalData
+WHERE total_intakes > 200 and animal_type = 'CAT'
+ORDER BY animal_type, intake_year, survival_rate DESC;
+
+-- Survival Rate Report for DOGS
+WITH SurvivalData AS (
+    SELECT 
+        l.animal_type, 
+        l.animal_breed, 
+        EXTRACT(YEAR FROM l.intake_date) AS intake_year, 
+        COUNT(*) AS total_intakes,
+        SUM(CASE WHEN o.outcome_type IN ('FOSTER', 'RETURNED TO OWNER', 'TREATMENT', 'SNR', 'ADOPTION', 'WILDLIFE', 'TRANSFER', 'TNR') THEN 1 ELSE 0 END) AS survived_count
+    FROM animal_shelter_logs l
+    JOIN outcome_type o ON l.outcome_id = o.outcome_id
+    GROUP BY l.animal_type, l.animal_breed, intake_year
+)
+SELECT 
+    animal_type, 
+    animal_breed, 
+    intake_year, 
+    total_intakes, 
+    survived_count,
+    ROUND((survived_count * 100.0 / total_intakes), 2) AS survival_rate
+FROM SurvivalData
+WHERE total_intakes > 200 and animal_type = 'DOG'
+ORDER BY animal_type, intake_year, survival_rate DESC;
+
+-- Non-Survival Rates for CATS
+WITH NonSurvivalData AS (
+    SELECT 
+        l.animal_type, 
+        l.animal_breed, 
+        EXTRACT(YEAR FROM l.intake_date) AS intake_year, 
+        COUNT(*) AS total_intakes,
+        SUM(CASE WHEN o.outcome_type IN ('EUTHANIZED', 'DIED', 'FOUND EXP', 'DISPOSAL') THEN 1 ELSE 0 END) AS non_survived_count
+    FROM animal_shelter_logs l
+    JOIN outcome_type o ON l.outcome_id = o.outcome_id
+    GROUP BY l.animal_type, l.animal_breed, intake_year
+)
+SELECT 
+    animal_type, 
+    animal_breed, 
+    intake_year, 
+    total_intakes, 
+    non_survived_count,
+    ROUND((non_survived_count * 100.0 / total_intakes), 2) AS non_survival_rate
+FROM NonSurvivalData
+WHERE total_intakes > 200 and animal_type = 'CAT'
+ORDER BY animal_type, intake_year, non_survival_rate DESC;
+
+-- Non-Survival Rates for DOGS
+WITH NonSurvivalData AS (
+    SELECT 
+        l.animal_type, 
+        l.animal_breed, 
+        EXTRACT(YEAR FROM l.intake_date) AS intake_year, 
+        COUNT(*) AS total_intakes,
+        SUM(CASE WHEN o.outcome_type IN ('EUTHANIZED', 'DIED', 'FOUND EXP', 'DISPOSAL') THEN 1 ELSE 0 END) AS non_survived_count
+    FROM animal_shelter_logs l
+    JOIN outcome_type o ON l.outcome_id = o.outcome_id
+    GROUP BY l.animal_type, l.animal_breed, intake_year
+)
+SELECT 
+    animal_type, 
+    animal_breed, 
+    intake_year, 
+    total_intakes, 
+    non_survived_count,
+    ROUND((non_survived_count * 100.0 / total_intakes), 2) AS non_survival_rate
+FROM NonSurvivalData
+WHERE total_intakes > 200 and animal_type = 'DOG'
+ORDER BY animal_type, intake_year, non_survival_rate DESC;
+
+-- examine how intake type influences an animal’s outcome
+WITH IntakeOutcomeCounts AS (
+    SELECT 
+        i.intake_type, 
+        o.outcome_type, 
+        COUNT(*) AS count_records
+    FROM animal_shelter_logs l
+    JOIN intake_type i ON l.intake_id = i.intake_id
+    JOIN outcome_type o ON l.outcome_id = o.outcome_id
+    GROUP BY i.intake_type, o.outcome_type
+)
+SELECT 
+    intake_type, 
+    outcome_type, 
+    count_records,
+    ROUND((count_records * 100.0 / SUM(count_records) OVER (PARTITION BY intake_type)), 2) AS percentage_outcomes
+FROM IntakeOutcomeCounts
+ORDER BY intake_type, percentage_outcomes DESC;
+
+-- average shelter stay duration for Cats and Dogs
+SELECT 
+    l.animal_type,
+    ROUND(AVG((l.outcome_date - l.intake_date)), 2) AS avg_days_in_shelter
+FROM animal_shelter_logs l
+WHERE l.outcome_date IS NOT NULL
+GROUP BY l.animal_type
+ORDER BY avg_days_in_shelter DESC;
+
+-- analyze the seasonality of intake and outcome events.
+WITH intake_counts AS (
+    SELECT 
+        EXTRACT(YEAR FROM intake_date) AS year,
+        EXTRACT(MONTH FROM intake_date) AS month,
+        COUNT(*) AS total_intakes
+    FROM animal_shelter_logs
+    GROUP BY year, month
+),
+outcome_counts AS (
+    SELECT 
+        EXTRACT(YEAR FROM outcome_date) AS year,
+        EXTRACT(MONTH FROM outcome_date) AS month,
+        COUNT(*) AS total_outcomes
+    FROM animal_shelter_logs
+    WHERE outcome_date IS NOT NULL
+    GROUP BY year, month
+)
+SELECT 
+    i.year,
+    i.month,
+    i.total_intakes,
+    COALESCE(o.total_outcomes, 0) AS total_outcomes
+FROM intake_counts i
+LEFT JOIN outcome_counts o
+ON i.year = o.year AND i.month = o.month
+ORDER BY i.year, i.month;
+
+
